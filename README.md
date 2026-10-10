@@ -50,6 +50,21 @@ Training picks the Apple GPU (`mps`) automatically; force CPU with `--device cpu
   inputs, BatchNorm folding, per-tensor vs per-channel weights, activation histograms and the clipping/rounding
   trade-off, reading a QDQ ONNX graph, accuracy/latency of every variant, and a layer-by-layer SQNR plot.
 
+### Range-image projection
+
+A range image turns an unordered 3D scan into a 2D grid indexed by the direction each laser return came from.
+First, coordinates are made relative to the scanner (in this project, the scanner is at `(0, 0, SCANNER_HEIGHT)`).
+For a relative point `(x, y, z)`, its **range** is the distance $r = \sqrt{x^2+y^2+z^2}$, its **yaw** is the
+horizontal angle around the vertical axis, $\operatorname{atan2}(y,x)$, and its **pitch** is the vertical angle
+above or below the horizontal plane, $\arcsin(z/r)$. Both angles are in radians in the code. Yaw selects the
+horizontal image coordinate; pitch selects the vertical row. The configured vertical field of view (here, from
+$-35^\circ$ to $25^\circ$) is divided into `H` rows, while yaw covers the full 360° in `W` columns.
+
+Each pixel stores the range of the return in that direction; a second image can store its class label. Directions
+with no return remain empty. If multiple points land in one pixel, this example keeps the nearest return, like a
+depth/range camera. The result is a regular 2D tensor that a conventional image model can process, though the
+projection can discard points when several returns collide in the same pixel.
+
 ## Project layout
 
 ```
