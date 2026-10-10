@@ -87,22 +87,32 @@ def main():
     ap.add_argument("--fp32", default=str(FP32))
     ap.add_argument("--variants", nargs="*", default=None)
     ap.add_argument("--calib-scenes", type=int, default=64)
-    ap.add_argument("--n-points", type=int, default=2048)
+    ap.add_argument("--n-points", type=int, default=None,
+                    help="points per scene (defaults to checkpoint metadata for a recognized model)")
+    ap.add_argument("--name-prefix", default="pointnet_seg",
+                    help="prefix for generated ONNX files, e.g. pointnet_seg_qat")
     args = ap.parse_args()
 
-    quant_pre_process(args.fp32, str(FP32_PREP), skip_symbolic_shape=True)
-    print(f"pre-processed float model -> {FP32_PREP}")
+    prep_model = Path(args.fp32).with_name(f"{Path(args.fp32).stem}_prep.onnx")
+    quant_pre_process(args.fp32, str(prep_model), skip_symbolic_shape=True)
+    print(f"pre-processed float model -> {prep_model}")
 
-    configs = variant_configs(FP32_PREP)
+    configs = variant_configs(prep_model)
     names = args.variants or list(configs)
-    reader = ScanCalibrationReader(args.calib_scenes, args.n_points)
+    n_points = args.n_points
+    if n_points is None:
+        input_shape = onnx.load(args.fp32).graph.input[0].type.tensor_type.shape.dim
+        n_points = input_shape[2].dim_value if len(input_shape) > 2 else 0
+        if n_points <= 0:
+            n_points = 2048
+    reader = ScanCalibrationReader(args.calib_scenes, n_points)
     for name in names:
         cfg = dict(configs[name])
         extra = {"ActivationSymmetric": False, "WeightSymmetric": True, **cfg.pop("extra_options", {})}
-        out = ONNX_DIR / f"pointnet_seg_{name}.onnx"
+        out = Path(args.fp32).parent / f"{args.name_prefix}_{name}.onnx"
         reader.rewind()
         t0 = time.time()
-        quantize_static(str(FP32_PREP), str(out), reader, quant_format=QuantFormat.QDQ, extra_options=extra, **cfg)
+        quantize_static(str(prep_model), str(out), reader, quant_format=QuantFormat.QDQ, extra_options=extra, **cfg)
         n_q = sum(n.op_type == "QuantizeLinear" for n in onnx.load(str(out)).graph.node)
         size_kb = out.stat().st_size / 1024
         print(f"{name:18s} -> {out.name:36s} {size_kb:7.0f} KB  {n_q:3d} QuantizeLinear nodes  ({time.time()-t0:.1f}s)")

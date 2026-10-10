@@ -18,7 +18,8 @@ from torch.utils.data import DataLoader
 
 from .data import NUM_CLASSES, SyntheticScans, class_frequencies
 from .metrics import confusion_matrix, summarize
-from .model import PointNetSeg, count_macs, count_parameters, pick_device
+from .model import PointNetSeg, count_macs, count_parameters, load_checkpoint, pick_device
+from .qat import prepare_qat_model
 
 
 @torch.no_grad()
@@ -43,13 +44,27 @@ def main():
     ap.add_argument("--device", default="auto", help="auto | mps | cpu | cuda")
     ap.add_argument("--workers", type=int, default=2)
     ap.add_argument("--out", default="outputs/checkpoints/pointnet_seg.pt")
+    ap.add_argument("--qat", action="store_true", help="train with W8A8 fake quantization (QAT)")
+    ap.add_argument("--init-checkpoint", help="optional float or QAT checkpoint to fine-tune")
     args = ap.parse_args()
 
     torch.manual_seed(0)
-    device = pick_device(args.device)
+    device = torch.device("cpu") if args.qat and args.device == "auto" else pick_device(args.device)
     model_args = dict(in_channels=4, num_classes=NUM_CLASSES)
-    model = PointNetSeg(**model_args).to(device)
+    initial_ckpt = None
+    if args.init_checkpoint:
+        model, initial_ckpt = load_checkpoint(args.init_checkpoint, device="cpu")
+        model_args = initial_ckpt["model_args"]
+        if bool(initial_ckpt.get("qat")) and not args.qat:
+            ap.error("a QAT checkpoint can only be resumed with --qat")
+    else:
+        model = PointNetSeg(**model_args)
+    if args.qat and not (initial_ckpt and bool(initial_ckpt.get("qat"))):
+        model = prepare_qat_model(model)
+    model = model.to(device)
     print(f"device={device}  params={count_parameters(model)/1e3:.0f}k  MACs/scene={count_macs(model, args.n_points)/1e6:.0f}M")
+    if args.qat:
+        print("QAT enabled: W8A8, unsigned per-tensor activations, symmetric per-channel weights")
 
     train_ds = SyntheticScans("train", args.train_size, args.n_points)
     val_ds = SyntheticScans("val", args.val_size, args.n_points)
@@ -94,7 +109,8 @@ def main():
         if val["mIoU"] > best:
             best = val["mIoU"]
             torch.save({"state_dict": model.state_dict(), "model_args": model_args, "n_points": args.n_points,
-                        "epoch": epoch, "val": val}, out)
+                        "epoch": epoch, "val": val,
+                        "qat": {"enabled": True, "scheme": "w8a8_perchannel"} if args.qat else False}, out)
 
     print(f"best val mIoU {best:.3f}; checkpoint -> {out}; log -> {log_path}")
 

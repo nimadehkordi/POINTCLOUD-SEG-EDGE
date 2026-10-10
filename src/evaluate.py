@@ -84,6 +84,8 @@ def main():
     n_points = torch.load(args.checkpoint, weights_only=False)["n_points"]
     rows = [{"model": "pytorch_fp32", **eval_torch(args.checkpoint, args.n_scenes, n_points)}]
     for path in sorted(Path(args.onnx_dir).glob("pointnet_seg_*.onnx")):
+        if path.stem.endswith("_qat_fp32"):
+            continue
         if path.stem.endswith("_prep"):
             continue
         row = {"model": path.stem.replace("pointnet_seg_", "onnx_"), **eval_onnx(str(path), args.n_scenes, n_points)}

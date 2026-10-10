@@ -21,6 +21,7 @@ import torch
 
 from .data import SyntheticScans
 from .model import load_checkpoint
+from .qat import to_float_export_model
 
 
 def export(model: torch.nn.Module, n_points: int, path: str, opset: int = 18) -> None:
@@ -53,17 +54,22 @@ def describe(path: str) -> None:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--checkpoint", default="outputs/checkpoints/pointnet_seg.pt")
-    ap.add_argument("--out", default="outputs/onnx/pointnet_seg_fp32.onnx")
+    ap.add_argument("--out", help="output ONNX path (defaults according to checkpoint type)")
     args = ap.parse_args()
 
     model, ckpt = load_checkpoint(args.checkpoint)
     n_points = ckpt["n_points"]
-    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-    export(model, n_points, args.out)
-    describe(args.out)
+    out = args.out or ("outputs/onnx/pointnet_seg_qat_fp32.onnx" if ckpt.get("qat")
+                       else "outputs/onnx/pointnet_seg_fp32.onnx")
+    if ckpt.get("qat"):
+        model = to_float_export_model(model)
+        print("baked QAT weight fake-quant and BatchNorm; run src.quantize on this float intermediate for QDQ")
+    Path(out).parent.mkdir(parents=True, exist_ok=True)
+    export(model, n_points, out)
+    describe(out)
 
     # Parity check on a few real test scenes.
-    sess = ort.InferenceSession(args.out, providers=["CPUExecutionProvider"])
+    sess = ort.InferenceSession(out, providers=["CPUExecutionProvider"])
     ds = SyntheticScans("test", 5, n_points)
     worst = 0.0
     for i in range(len(ds)):
@@ -72,7 +78,7 @@ def main():
         got = sess.run(None, {"points": x[None].numpy()})[0]
         worst = max(worst, float(np.abs(ref - got).max()))
     print(f"max |torch - onnxruntime| over 5 scenes: {worst:.2e}")
-    print(f"saved {args.out}")
+    print(f"saved {out}")
 
 
 if __name__ == "__main__":

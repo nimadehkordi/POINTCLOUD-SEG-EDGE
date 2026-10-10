@@ -73,5 +73,9 @@ def pick_device(preference: str = "auto") -> torch.device:
 def load_checkpoint(path: str, device: str | torch.device = "cpu"):
     ckpt = torch.load(path, map_location=device, weights_only=False)
     model = PointNetSeg(**ckpt["model_args"])
+    if ckpt.get("qat"):
+        from .qat import prepare_qat_model
+
+        model = prepare_qat_model(model)
     model.load_state_dict(ckpt["state_dict"])
     return model.to(device).eval(), ckpt

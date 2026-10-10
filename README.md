@@ -40,6 +40,23 @@ Or step by step:
 | Pretrained model (optional) | `python -m src.pretrained_image_seg --image photo.jpg` | downloads LR-ASPP MobileNetV3 (~13 MB), exports, quantizes, compares |
 
 Training picks the Apple GPU (`mps`) automatically; force CPU with `--device cpu`.
+Optional W8A8 QAT fine-tuning starts from the float checkpoint and writes a separate artifact:
+
+```bash
+python -m src.train --qat --init-checkpoint outputs/checkpoints/pointnet_seg.pt \
+  --out outputs/checkpoints/pointnet_seg_qat.pt --epochs 5 --lr 2e-4
+python -m src.export_onnx --checkpoint outputs/checkpoints/pointnet_seg_qat.pt
+```
+
+QAT runs on CPU by default (pass `--device` explicitly to override). It uses unsigned per-tensor
+activation fake quantization and symmetric per-output-channel int8 weight fake quantization. The
+QAT checkpoint is kept separate from the float checkpoint; ONNX export defaults to
+`outputs/onnx/pointnet_seg_qat_fp32.onnx`, baking its learned weight fake quantization and folded
+BatchNorm into a float ONNX intermediate. Run `python -m src.quantize --fp32
+outputs/onnx/pointnet_seg_qat_fp32.onnx --name-prefix pointnet_seg_qat` to produce separate
+deployable QDQ variants from QAT weights without overwriting the baseline PTQ files. The activation
+fake-quant behavior is used during training; static ONNX calibration creates the final QDQ
+activation nodes.
 
 ## Notebooks
 
