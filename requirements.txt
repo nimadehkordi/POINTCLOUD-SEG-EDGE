@@ -1,0 +1,11 @@
+# Tested with Python 3.11-3.13. On Apple Silicon, PyTorch uses the GPU via MPS automatically.
+torch>=2.5
+torchvision>=0.20        # only for the optional pretrained image model
+onnx>=1.17
+onnxscript>=0.2          # needed by the modern torch.onnx exporter (dynamo=True)
+onnxruntime>=1.20        # inference + quantization tools
+numpy>=1.26
+matplotlib>=3.8
+pillow>=10
+jupyterlab>=4
+ipykernel>=6
