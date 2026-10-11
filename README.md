@@ -41,6 +41,10 @@ Or step by step:
 
 Training picks the Apple GPU (`mps`) automatically; force CPU with `--device cpu`.
 
+## Data
+
+To download the Toronto 3D dataset. Please visit https://github.com/WeikaiTan/Toronto-3D/tree/master and place it under `/data` folder and run the `03_toronto_3d_eda.ipynb` to familiarize yourself with the dataset.
+
 ## Notebooks
 
 * **`01_point_cloud_data.ipynb`**: what scans look like (3D, top-down, side views), class balance, density and
@@ -49,6 +53,7 @@ Training picks the Apple GPU (`mps`) automatically; force CPU with `--device cpu
 * **`02_quantization_deep_dive.ipynb`**: scale/zero-point by hand, symmetric vs asymmetric, why to normalize
   inputs, BatchNorm folding, per-tensor vs per-channel weights, activation histograms and the clipping/rounding
   trade-off, reading a QDQ ONNX graph, accuracy/latency of every variant, and a layer-by-layer SQNR plot.
+* **`03_toronto_3d_eda.ipynb`**: a notebook to load and perform exploratory data analysis for toronto 3D dataset.
 
 ### Range-image projection
 

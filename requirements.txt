@@ -5,6 +5,7 @@ onnx>=1.17
 onnxscript>=0.2          # needed by the modern torch.onnx exporter (dynamo=True)
 onnxruntime>=1.20        # inference + quantization tools
 numpy>=1.26
+pandas>=2.0
 matplotlib>=3.8
 pillow>=10
 jupyterlab>=4
