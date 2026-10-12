@@ -1,0 +1,28 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Toronto_3D training (smoke test)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src.train_toronto",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "args": [
+                "--data-dir", "${workspaceFolder}/data/Toronto_3D",
+                "--train-scans", "L001.ply",
+                "--val-scans", "L004.ply",
+                "--tile-size", "100",
+                "--min-points", "512",
+                "--n-points", "512",
+                "--epochs", "1",
+                "--batch-size", "2",
+                "--workers", "0",
+                "--device", "cpu"
+            ]
+        }
+    ]
+}
